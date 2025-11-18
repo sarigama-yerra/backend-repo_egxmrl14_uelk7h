@@ -1,48 +1,83 @@
 """
-Database Schemas
+Database Schemas for BBB Auto Sales DMS
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model corresponds to a MongoDB collection.
+Collection name is the lowercase class name.
 """
-
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Literal
+from datetime import date, datetime
 
-# Example schemas (replace with your own):
-
+# Users (staff)
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
+    email: str = Field(..., description="Unique email")
+    password_hash: str = Field(..., description="BCrypt or hashed password")
     name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    role: Literal["admin", "user"] = Field("user", description="Role for RBAC")
+    active: bool = Field(True)
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+# Auth Sessions (token storage for simplicity)
+class Session(BaseModel):
+    user_id: str
+    token: str
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
 
-# Add your own schemas here:
-# --------------------------------------------------
+# Vehicles Inventory
+class Vehicle(BaseModel):
+    # Display and core fields
+    year: int
+    make: str
+    model: str
+    trim: Optional[str] = None
+    vin: str
+    price: float
+    down_payment: float = 0
+    status: Literal["Available", "Sold", "Repairs", "On Hold"] = "Available"
+    stock_number: Optional[str] = None
+    images: List[str] = []
+    color: Optional[str] = None
+    mileage: Optional[int] = None
+    notes: Optional[str] = None
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# Sales transactions
+class Sale(BaseModel):
+    account_number: int
+    stock_number: str
+    vin: str
+    vehicle: str  # "Year Make Model"
+    date: date
+    salesperson: str
+    sale_type: Literal["Cash", "BHPH"] = "BHPH"
+    true_down: float = 0
+    notes: Optional[str] = None
+
+# Daily Collections (payments)
+class Payment(BaseModel):
+    date: date
+    amount: float
+    type: Literal["Payment", "Late Fee", "BOA"] = "Payment"
+    customer: Optional[str] = None
+    salesperson: Optional[str] = None
+
+# Delinquency snapshot
+class Delinquency(BaseModel):
+    date: date
+    open_accounts: int
+    overdue_accounts: int
+    rate: float
+
+# Calendar events
+class Event(BaseModel):
+    title: str
+    customer: Optional[str] = None
+    salesperson: Optional[str] = None
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    color: Optional[str] = None
+
+# Team chat message
+class Message(BaseModel):
+    sender: str
+    text: str
+    created_at: Optional[datetime] = None
