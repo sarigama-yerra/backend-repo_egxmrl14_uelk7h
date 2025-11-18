@@ -112,6 +112,51 @@ def login(body: LoginRequest):
     )
 
 
+@app.post("/auth/bootstrap", response_model=TokenResponse)
+def bootstrap_admin():
+    """
+    One-click initialization: creates a default admin if no users exist yet
+    and returns an auth token for immediate access.
+    Email: admin@demo.com, Password: demo1234
+    """
+    existing = db["user"].count_documents({})
+    if existing > 0:
+        raise HTTPException(400, "Already initialized")
+
+    email = "admin@demo.com"
+    password = "demo1234"
+    name = "Admin"
+    role = "admin"
+
+    hashed = bcrypt.hash(password)
+    user_doc = {
+        "email": email,
+        "password_hash": hashed,
+        "name": name,
+        "role": role,
+        "active": True,
+        "created_at": datetime.now(timezone.utc),
+    }
+    res = db["user"].insert_one(user_doc)
+
+    token = secrets.token_urlsafe(32)
+    session = {
+        "user_id": str(res.inserted_id),
+        "token": token,
+        "email": email,
+        "name": name,
+        "role": role,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+    }
+    db["session"].insert_one(session)
+
+    return TokenResponse(
+        token=token,
+        user=AuthUser(id=str(res.inserted_id), email=email, name=name, role=role),
+    )
+
+
 def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Missing token")
