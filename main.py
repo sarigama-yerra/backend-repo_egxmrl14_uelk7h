@@ -64,7 +64,8 @@ class TokenResponse(BaseModel):
     token: str
     user: AuthUser
 
-from passlib.hash import bcrypt
+# Use PBKDF2-SHA256 to avoid bcrypt backend issues
+from passlib.hash import pbkdf2_sha256 as hasher
 
 
 def get_user_by_email(email: str) -> Optional[dict]:
@@ -75,7 +76,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
 def register(body: RegisterRequest):
     if get_user_by_email(body.email):
         raise HTTPException(400, "Email already registered")
-    hashed = bcrypt.hash(body.password)
+    hashed = hasher.hash(body.password)
     user_doc = {
         "email": body.email,
         "password_hash": hashed,
@@ -91,7 +92,7 @@ def register(body: RegisterRequest):
 @app.post("/auth/login", response_model=TokenResponse)
 def login(body: LoginRequest):
     user = get_user_by_email(body.email)
-    if not user or not bcrypt.verify(body.password, user.get("password_hash", "")):
+    if not user or not hasher.verify(body.password, user.get("password_hash", "")):
         raise HTTPException(401, "Invalid credentials")
     if not user.get("active", True):
         raise HTTPException(403, "User inactive")
@@ -128,7 +129,7 @@ def bootstrap_admin():
     name = "Admin"
     role = "admin"
 
-    hashed = bcrypt.hash(password)
+    hashed = hasher.hash(password)
     user_doc = {
         "email": email,
         "password_hash": hashed,
